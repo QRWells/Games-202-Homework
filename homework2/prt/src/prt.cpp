@@ -129,6 +129,18 @@ namespace ProjEnv
                     int index = (y * width + x) * channel;
                     Eigen::Array3f Le(images[i][index + 0], images[i][index + 1],
                                       images[i][index + 2]);
+                    auto wOmega = CalcArea(x, y, width, height);
+
+                    for (auto l = 0; l <= SHOrder; ++l)
+                    {
+                        for (auto m = -l; m <= l; ++m)
+                        {
+                            auto k = sh::GetIndex(l, m);
+                            auto basicFunc = sh::EvalSH(l, m, dir.cast<double>().normalized());
+
+                            SHCoeffiecents[k] += wOmega * Le * basicFunc;
+                        }
+                    }
                 }
             }
         }
@@ -207,16 +219,20 @@ public:
             {
                 Eigen::Array3d d = sh::ToVector(phi, theta);
                 const auto wi = Vector3f(d.x(), d.y(), d.z());
+                const auto H = wi.dot(n);
                 if (m_Type == Type::Unshadowed)
                 {
                     // TODO: here you need to calculate unshadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的unshadowed传输项球谐函数值
-                    return 0;
+                    return std::max(0.f, H);
                 }
                 else
                 {
                     // TODO: here you need to calculate shadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的shadowed传输项球谐函数值
+                    Ray3f ray(v, wi.normalized());
+                    if (H > 0 && !scene->rayIntersect(ray))
+                        return H;
                     return 0;
                 }
             };
@@ -276,11 +292,11 @@ public:
         // TODO: you need to delete the following four line codes after finishing your calculation to SH,
         //       we use it to visualize the normals of model for debug.
         // TODO: 在完成了球谐系数计算后，你需要删除下列四行，这四行代码的作用是用来可视化模型法线
-        if (c.isZero())
-        {
-            auto n_ = its.shFrame.n.cwiseAbs();
-            return Color3f(n_.x(), n_.y(), n_.z());
-        }
+        // if (c.isZero())
+        // {
+        //     auto n_ = its.shFrame.n.cwiseAbs();
+        //     return Color3f(n_.x(), n_.y(), n_.z());
+        // }
         return c;
     }
 
